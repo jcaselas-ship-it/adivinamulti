@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Factores y Multiplicación</title>
+    <!-- Carga de Tailwind CSS para un diseño limpio y responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f3f3; /* Fondo muy claro */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-container {
+            max-width: 650px;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 30px;
+            text-align: center;
+        }
+
+        .factor-button {
+            transition: all 0.1s ease-in-out;
+        }
+
+        .factor-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Colores de selección para Factor 1 (Naranja) */
+        .factor-bar-1 .factor-button.selected {
+            background-color: #f97316 !important; /* Orange-600 */
+            border: 3px solid #ea580c;
+            color: white;
+            transform: scale(0.95);
+        }
+
+        /* Colores de selección para Factor 2 (Turquesa) */
+        .factor-bar-2 .factor-button.selected {
+            background-color: #10b981 !important; /* Teal-500 */
+            border: 3px solid #059669;
+            color: white;
+            transform: scale(0.95);
+        }
+        
+        /* Estilo para mensajes de éxito, error e info */
+        .message.success { background-color: #d1fae5; color: #065f46; }
+        .message.error { background-color: #fee2e2; color: #991b1b; }
+        .message.info { background-color: #dbeafe; color: #1e40af; }
+
+        /* --- Estilos para el efecto de estrellas (Punto 4) --- */
+        .star-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        @keyframes star-fall {
+            0% { transform: translate(var(--x), var(--y)) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--finalX), var(--finalY)) scale(1.5); opacity: 0; }
+        }
+
+        .star {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background-color: gold;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 67% 57%, 78% 91%, 50% 70%, 22% 91%, 33% 57%, 2% 35%, 39% 35%);
+            animation: star-fall 0.8s ease-out forwards;
+        }
+        
+        /* Contenedor de estadísticas y controles */
+        .stats-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px; /* Reducido para mejor compactación */
+            padding-top: 4px; /* Reducido */
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 8px; /* Espacio entre el botón de silencio y el de Reiniciar */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game" class="game-container">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">Adivina la Multiplicación</h1>
+
+        <div class="mb-8">
+            <p class="text-xl text-gray-600 mb-2">El resultado es:</p>
+            <!-- Aquí se mostrará el número a factorizar -->
+            <div id="result-display" class="text-8xl font-black text-indigo-600">?</div>
+        </div>
+
+        <!-- Área de mensajes (éxito, error, ambigüedad) -->
+        <div id="message-box" class="message rounded-lg p-3 text-sm font-medium mb-6 transition duration-300 h-10 flex items-center justify-center invisible">
+            <!-- Mensajes aquí -->
+        </div>
+
+        <!-- Barras de Factores con el signo de multiplicación en medio (Punto 1) -->
+        <div class="flex justify-center items-start gap-3 mb-8">
+            <!-- Factor 1 (Naranja) -->
+            <div id="factor1-buttons" class="grid grid-cols-5 gap-2 w-1/2 factor-bar-1">
+                <!-- Botones JS -->
+            </div>
+            
+            <!-- Símbolo de multiplicación -->
+            <div class="text-5xl font-extrabold text-gray-600 h-full flex items-center justify-center pt-2">
+                &times;
+            </div>
+
+            <!-- Factor 2 (Turquesa) -->
+            <div id="factor2-buttons" class="grid grid-cols-5 gap-2 w-1/2 factor-bar-2">
+                <!-- Botones JS -->
+            </div>
+        </div>
+        
+        <!-- Botones de Acción (Punto 3 - Ambigüedad) -->
+        <div class="flex flex-col space-y-3">
+            <!-- Botón para buscar soluciones adicionales -->
+            <button id="find-next-solution-button" onclick="promptNextSolution()" class="hidden px-4 py-3 bg-yellow-500 text-white font-bold rounded-full hover:bg-yellow-600 transition duration-150 shadow-md mx-auto w-full max-w-sm">
+                ¡Hay más soluciones! Buscar otra (+1 Racha)
+            </button>
+            <!-- Botón para pasar al siguiente problema -->
+            <button id="next-problem-button" onclick="generateProblem()" class="hidden px-4 py-3 bg-indigo-500 text-white font-bold rounded-full hover:bg-indigo-600 transition duration-150 shadow-md mx-auto w-full max-w-sm">
+                Siguiente Problema
+            </button>
+        </div>
+
+
+        <div class="stats-container">
+            <!-- Racha de aciertos (Punto 2) -->
+            <p class="text-md font-semibold text-gray-700">Racha: <span id="score" class="text-green-600 font-extrabold text-xl">0</span></p>
+            
+            <div class="control-group">
+                <!-- Botón de Pista -->
+                <button id="hint-button" onclick="requestHint()" class="p-2 px-4 bg-purple-500 text-white font-bold rounded-full hover:bg-purple-600 transition duration-150 shadow-md">
+                    Pista (3)
+                </button>
+                
+                <!-- Botón de Silencio/Sonido -->
+                <button id="toggle-sound-button" onclick="toggleSound()" class="p-2 bg-gray-200 text-gray-700 text-xl font-bold rounded-full hover:bg-gray-300 transition duration-150 shadow-md">
+                    <!-- Icono se actualiza por JS -->
+                </button>
+                
+                <button onclick="newGame()" class="px-4 py-2 bg-gray-500 text-white font-bold rounded-full hover:bg-gray-600 transition duration-150 shadow-md">
+                    Reiniciar
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenedor de estrellas (Punto 4) -->
+    <div id="star-container" class="star-container"></div>
+
+    <script>
+        // --- Variables de Estado del Juego ---
+        let currentResult = 0;
+        let selectedFactor1 = null;
+        let selectedFactor2 = null;
+        let score = 0;
+        let allPossibleSolutions = []; // Todas las soluciones posibles para currentResult (ej: [[2, 6], [3, 4]])
+        let foundSolutions = []; // Soluciones únicas encontradas por el usuario para este currentResult
+        let isSoundEnabled = true; // Estado para controlar el sonido
+        let availableHints = 3; // NUEVA variable para las pistas disponibles
+        
+        // Inicialización de AudioContext
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // --- Referencias del DOM ---
+        const resultDisplay = document.getElementById('result-display');
+        const factor1ButtonsContainer = document.getElementById('factor1-buttons');
+        const factor2ButtonsContainer = document.getElementById('factor2-buttons');
+        const messageBox = document.getElementById('message-box');
+        const scoreDisplay = document.getElementById('score');
+        const starContainer = document.getElementById('star-container');
+        const findNextSolutionButton = document.getElementById('find-next-solution-button');
+        const nextProblemButton = document.getElementById('next-problem-button');
+        const toggleSoundButton = document.getElementById('toggle-sound-button');
+        const hintButton = document.getElementById('hint-button'); // NUEVA referencia
+
+        // Función auxiliar para obtener un entero aleatorio entre min y max (inclusive)
+        const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+        /**
+         * Genera un tono simple usando la Web Audio API.
+         * @param {number} frequency - Frecuencia del tono (Hz).
+         * @param {number} duration - Duración en segundos.
+         * @param {string} type - Tipo de onda ('sine', 'square', 'sawtooth', 'triangle').
+         * @param {number} gainValue - Volumen (0 a 1).
+         */
+        function playTone(frequency, duration, type = 'sine', gainValue = 0.3) {
+            // Comprobación de sonido activado
+            if (!isSoundEnabled) return; 
+
+            // Se debe iniciar el AudioContext con una interacción del usuario
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            // Configuración del oscilador
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+            // Configuración del volumen (Gain)
+            gainNode.gain.setValueAtTime(gainValue, audioContext.currentTime);
+            // Pequeño fade out para evitar chasquidos
+            gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + duration);
+
+            // Conectar nodos: Oscilador -> Gain -> Destino (altavoces)
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            // Iniciar y detener el oscilador
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        /**
+         * Llama al sonido de éxito (tono alegre y ascendente).
+         */
+        function playSuccessSound() {
+            // Tono 1 (más largo: 0.2s)
+            playTone(600, 0.2, 'square');
+            // Tono 2 (más largo: 0.3s y retrasado)
+            setTimeout(() => playTone(800, 0.3, 'square'), 100);
+        }
+
+        /**
+         * Llama al sonido de fallo (tono disonante y descendente).
+         */
+        function playFailSound() {
+            // Tono 1 (más largo: 0.2s)
+            playTone(300, 0.2, 'triangle');
+            // Tono 2 (más largo: 0.3s y retrasado)
+            setTimeout(() => playTone(200, 0.3, 'triangle'), 100);
+        }
+        
+        /**
+         * Alterna el estado del sonido y actualiza el botón.
+         */
+        function toggleSound() {
+            isSoundEnabled = !isSoundEnabled;
+            updateSoundButton();
+            // Tono de confirmación (activado)
+            if (isSoundEnabled) {
+                playTone(440, 0.1, 'sine', 0.1); 
+            }
+        }
+        
+        /**
+         * Actualiza el icono del botón de sonido según el estado.
+         */
+        function updateSoundButton() {
+            toggleSoundButton.innerHTML = isSoundEnabled 
+                ? '🔊' // Altavoz con volumen (Sonido activado)
+                : '🔈'; // Altavoz con una barra (Silenciado)
+        }
+        
+        /**
+         * Actualiza el texto y estado del botón de pista.
+         */
+        function updateHintButton() {
+            hintButton.textContent = `Pista (${availableHints})`;
+            
+            const allFound = allPossibleSolutions.length > 0 && allPossibleSolutions.length === foundSolutions.length;
+            
+            if (availableHints <= 0 || allFound) {
+                hintButton.classList.add('opacity-50', 'cursor-not-allowed');
+                hintButton.disabled = true;
+            } else {
+                hintButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                hintButton.disabled = false;
+            }
+        }
+
+        /**
+         * Proporciona una pista al usuario revelando un factor de una solución no encontrada.
+         */
+        function requestHint() {
+            if (availableHints <= 0 || !currentResult) {
+                showMessage("¡Ya no te quedan pistas!", 'error');
+                return;
+            }
+            
+            // 1. Encontrar una solución que aún no se haya encontrado
+            const unsolvedPair = allPossibleSolutions.find(pair => {
+                // Verificar si este par (ordenado o inverso) ya está en foundSolutions
+                const isFound = foundSolutions.some(fp => 
+                    (fp[0] === pair[0] && fp[1] === pair[1]) || (fp[0] === pair[1] && fp[1] === pair[0])
+                );
+                return !isFound;
+            });
+
+            if (!unsolvedPair) {
+                showMessage("Ya has encontrado todas las soluciones para este número.", 'info');
+                updateHintButton();
+                return;
+            }
+            
+            // 2. Usar la pista y actualizar el estado
+            availableHints--;
+            updateHintButton();
+            
+            // 3. Elegir un factor de la solución no encontrada para revelar
+            const factorToRevealIndex = getRandomInt(0, 1); // 0 o 1
+            const factorToReveal = unsolvedPair[factorToRevealIndex];
+            
+            // 4. Resetear la selección actual del usuario (para limpiar la interfaz)
+            resetSelection(); 
+
+            // 5. Simular la selección del factor revelado en la Barra 1 (Factor 1)
+            // Esto selecciona el botón y establece selectedFactor1. El usuario debe encontrar selectedFactor2.
+            handleSelection(factorToReveal, 1);
+            
+            // 6. Informar al usuario
+            showMessage(`Pista usada: el Factor 1 es ${factorToReveal}. ¡Encuentra el otro!`, 'info');
+            // Nota: No se pierde la racha, solo se decrementa el contador de pistas.
+        }
+
+
+        /**
+         * 4. Función para mostrar el efecto de estrellas al acertar.
+         * @param {number} count - Número de estrellas a generar.
+         */
+        function showStarEffect(count = 30) {
+            const resultRect = resultDisplay.getBoundingClientRect();
+            const centerX = resultRect.left + resultRect.width / 2;
+            const centerY = resultRect.top + resultRect.height / 2;
+
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // Posición inicial cerca del resultado
+                const startX = centerX + getRandomInt(-20, 20);
+                const startY = centerY + getRandomInt(-20, 20);
+                
+                // Posición final dispersa
+                const finalX = startX + getRandomInt(-150, 150);
+                const finalY = startY + getRandomInt(-150, 150);
+                
+                // Aplicar variables CSS para la animación
+                star.style.setProperty('--x', `${startX}px`);
+                star.style.setProperty('--y', `${startY}px`);
+                star.style.setProperty('--finalX', `${finalX}px`);
+                star.style.setProperty('--finalY', `${finalY}px`);
+                star.style.animationDelay = `${i * 0.03}s`;
+
+                starContainer.appendChild(star);
+
+                // Eliminar la estrella después de la animación
+                setTimeout(() => star.remove(), 1000);
+            }
+        }
+
+        /**
+         * Obtiene todos los pares de factores únicos (A, B) donde A * B = n, A <= B, y 1 <= A, B <= 10.
+         */
+        function getFactorPairs(n) {
+            const pairs = [];
+            for (let a = 1; a <= 10; a++) {
+                if (n % a === 0) {
+                    const b = n / a;
+                    if (b <= 10) {
+                        // Almacenar el par ordenado para asegurar unicidad
+                        const pair = a <= b ? [a, b] : [b, a];
+                        
+                        // Convertir a cadena para verificar si el par ya existe (ej: [2, 6] es igual a [2, 6])
+                        const isUnique = !pairs.some(p => p[0] === pair[0] && p[1] === pair[1]);
+                        
+                        if (isUnique) {
+                            pairs.push(pair);
+                        }
+                    }
+                }
+            }
+            return pairs;
+        }
+
+        /**
+         * Genera un nuevo problema de multiplicación y lo muestra.
+         */
+        function generateProblem() {
+            // 1. Generar factores y resultado
+            const factorA = getRandomInt(1, 10);
+            const factorB = getRandomInt(1, 10);
+            currentResult = factorA * factorB;
+            
+            // 2. Calcular todas las soluciones posibles para el control de ambigüedad
+            allPossibleSolutions = getFactorPairs(currentResult);
+            foundSolutions = []; // Resetear soluciones encontradas
+            
+            // 3. Resetear la selección y ocultar botones de acción
+            resetSelection();
+            hideMessage();
+            nextProblemButton.classList.add('hidden');
+            findNextSolutionButton.classList.add('hidden');
+            
+            // 4. Actualizar la interfaz
+            resultDisplay.textContent = currentResult;
+            updateHintButton(); // Actualizar estado del botón de pista para el nuevo problema
+            
+            // 5. Mostrar aviso si el resultado es ambiguo
+            if (allPossibleSolutions.length > 1) {
+                showMessage(`¡Atención! El ${currentResult} tiene ${allPossibleSolutions.length} soluciones.`, 'info');
+            }
+        }
+        
+        /**
+         * Resetea la selección y desbloquea los botones de factor.
+         */
+        function resetSelection() {
+            selectedFactor1 = null;
+            selectedFactor2 = null;
+
+            // Deseleccionar y desbloquear botones en ambas barras
+            factor1ButtonsContainer.querySelectorAll('.factor-button').forEach(button => {
+                button.classList.remove('selected', 'pointer-events-none');
+            });
+            factor2ButtonsContainer.querySelectorAll('.factor-button').forEach(button => {
+                button.classList.remove('selected', 'pointer-events-none');
+            });
+        }
+        
+        /**
+         * Muestra un mensaje temporal al usuario.
+         */
+        function showMessage(text, type) {
+            messageBox.textContent = text;
+            messageBox.className = 'message rounded-lg p-3 text-sm font-medium mb-6 transition duration-300 h-10 flex items-center justify-center visible';
+            
+            messageBox.classList.remove('success', 'error', 'info');
+            messageBox.classList.add(type);
+        }
+
+        /**
+         * Oculta el mensaje.
+         */
+        function hideMessage() {
+             messageBox.className = 'message rounded-lg p-3 text-sm font-medium mb-6 transition duration-300 h-10 flex items-center justify-center invisible';
+             messageBox.textContent = '';
+        }
+
+        /**
+         * Bloquea los botones de factor.
+         */
+        function lockFactorButtons() {
+            factor1ButtonsContainer.querySelectorAll('.factor-button').forEach(button => button.classList.add('pointer-events-none'));
+            factor2ButtonsContainer.querySelectorAll('.factor-button').forEach(button => button.classList.add('pointer-events-none'));
+        }
+
+        /**
+         * Maneja el clic en un botón de factor.
+         */
+        function handleSelection(factor, barId) {
+            // Si los botones están bloqueados, ignorar el clic (para evitar spam sonoro)
+            if (factor1ButtonsContainer.querySelector('.pointer-events-none')) return;
+
+            const isBar1 = barId === 1;
+            const barContainer = isBar1 ? factor1ButtonsContainer : factor2ButtonsContainer;
+            let currentSelected = isBar1 ? selectedFactor1 : selectedFactor2;
+
+            // 1. Deseleccionar todos los botones de la barra actual
+            barContainer.querySelectorAll('.factor-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+
+            if (currentSelected === factor) {
+                // 2. Deseleccionar si se hace clic en el mismo botón
+                if (isBar1) selectedFactor1 = null;
+                else selectedFactor2 = null;
+            } else {
+                // 3. Seleccionar el nuevo factor
+                if (isBar1) selectedFactor1 = factor;
+                else selectedFactor2 = factor;
+                document.getElementById(`btn-${barId}-${factor}`).classList.add('selected');
+            }
+
+            // 4. Verificar si ambos factores están seleccionados
+            if (selectedFactor1 !== null && selectedFactor2 !== null) {
+                checkAnswer();
+            }
+        }
+
+        /**
+         * Verifica si el producto de los factores seleccionados es correcto y gestiona la racha.
+         */
+        function checkAnswer() {
+            const factor1 = selectedFactor1;
+            const factor2 = selectedFactor2;
+            const product = factor1 * factor2;
+            
+            // Bloquear botones mientras se comprueba la respuesta
+            lockFactorButtons();
+
+            if (product === currentResult) {
+                // Formar el par de respuesta (ordenado) para la verificación de unicidad
+                const solvedPair = factor1 <= factor2 ? [factor1, factor2] : [factor2, factor1];
+                
+                // Verificar si la solución es una de las válidas y si es única
+                const isValidSolution = allPossibleSolutions.some(p => p[0] === solvedPair[0] && p[1] === solvedPair[1]);
+                const isAlreadyFound = foundSolutions.some(p => p[0] === solvedPair[0] && p[1] === solvedPair[1]);
+
+                if (isValidSolution) {
+                    if (isAlreadyFound) {
+                        playFailSound(); // Sonido de fallo por repetición
+                        showMessage(`¡Ya encontraste esa solución! (${factor1} x ${factor2}). Intenta con un par diferente.`, 'error');
+                        setTimeout(resetSelection, 1500); // Dar oportunidad de intentarlo de nuevo
+                    } else {
+                        // Solución correcta y única
+                        score++; // Incrementar racha (Punto 2 y 3)
+                        scoreDisplay.textContent = score;
+                        foundSolutions.push(solvedPair);
+                        
+                        playSuccessSound(); // **SONIDO DE ÉXITO**
+                        showStarEffect(); // Efecto visual AUMENTADO
+
+                        const remaining = allPossibleSolutions.length - foundSolutions.length;
+                        
+                        if (remaining === 0) {
+                            // Todas las soluciones encontradas para este problema
+                            showMessage(`¡EXCELENTE! Encontraste las ${allPossibleSolutions.length} soluciones para el ${currentResult}. Racha +1.`, 'success');
+                            findNextSolutionButton.classList.add('hidden');
+                            nextProblemButton.classList.remove('hidden');
+                            updateHintButton(); // Deshabilitar pista si ya no hay soluciones
+                        } else {
+                            // Solución correcta, pero quedan más
+                            showMessage(`¡Correcto! ${factor1} x ${factor2} = ${currentResult}. Racha +1. Quedan ${remaining} soluciones.`, 'success');
+                            
+                            findNextSolutionButton.textContent = remaining > 1 
+                                ? `Buscar las ${remaining} soluciones restantes (+1 Racha c/u)` 
+                                : `Buscar la última solución (+1 Racha)`;
+                            
+                            findNextSolutionButton.classList.remove('hidden');
+                            nextProblemButton.classList.add('hidden');
+                        }
+                    }
+                } else {
+                    // Producto correcto, pero no es un factor válido (nunca debería pasar si el producto es currentResult)
+                    showAnswerIncorrect(`(${factor1} x ${factor2} = ${product}). Error de lógica interna. Reinicia.`);
+                }
+            } else {
+                // Respuesta incorrecta
+                showAnswerIncorrect(`Incorrecto. ${factor1} x ${factor2} = ${product}.`);
+            }
+        }
+        
+        /**
+         * Muestra mensaje de error y resetea la racha.
+         */
+        function showAnswerIncorrect(message) {
+            playFailSound(); // **SONIDO DE FALLO**
+            score = 0;
+            scoreDisplay.textContent = score;
+            showMessage(message + ' ¡Racha reiniciada!', 'error');
+            
+            // Forzar el siguiente problema inmediatamente tras el error
+            nextProblemButton.classList.remove('hidden');
+            findNextSolutionButton.classList.add('hidden');
+        }
+
+        /**
+         * Prepara el juego para buscar la siguiente solución o pasa al siguiente problema.
+         */
+        function promptNextSolution() {
+            if (allPossibleSolutions.length === foundSolutions.length) {
+                // Si ya se encontraron todas, pasar al siguiente problema
+                generateProblem();
+            } else {
+                // Si quedan soluciones, resetear la interfaz para que el usuario intente de nuevo
+                findNextSolutionButton.classList.add('hidden');
+                nextProblemButton.classList.add('hidden');
+                hideMessage();
+                resetSelection(); // Desbloquea los botones de factor
+                
+                const remaining = allPossibleSolutions.length - foundSolutions.length;
+                showMessage(`¡Busca un nuevo par de factores! Quedan ${remaining} soluciones por encontrar.`, 'info');
+            }
+        }
+        
+        /**
+         * Inicializa la generación de los botones de factores.
+         */
+        function initializeButtons() {
+            factor1ButtonsContainer.innerHTML = '';
+            factor2ButtonsContainer.innerHTML = '';
+
+            // Generar botones para la barra 1 (Naranja)
+            for (let i = 1; i <= 10; i++) {
+                const button = document.createElement('button');
+                button.id = `btn-1-${i}`;
+                button.textContent = i;
+                button.className = 'factor-button bg-orange-400 text-white text-xl font-bold p-3 rounded-xl shadow-lg hover:bg-orange-500 active:bg-orange-600 transition-all duration-150';
+                button.onclick = () => handleSelection(i, 1);
+                factor1ButtonsContainer.appendChild(button);
+            }
+
+            // Generar botones para la barra 2 (Turquesa)
+            for (let i = 1; i <= 10; i++) {
+                const button = document.createElement('button');
+                button.id = `btn-2-${i}`;
+                button.textContent = i;
+                button.className = 'factor-button bg-teal-400 text-white text-xl font-bold p-3 rounded-xl shadow-lg hover:bg-teal-500 active:bg-teal-600 transition-all duration-150';
+                button.onclick = () => handleSelection(i, 2);
+                factor2ButtonsContainer.appendChild(button);
+            }
+        }
+
+        /**
+         * Inicia un nuevo juego (resetea el puntaje y genera el primer problema).
+         */
+        function newGame() {
+            score = 0;
+            scoreDisplay.textContent = score;
+            availableHints = 3; // Resetear el contador de pistas
+            initializeButtons(); 
+            generateProblem();
+            updateSoundButton(); // Asegura que el botón de sonido se muestre correctamente al inicio
+            updateHintButton(); // Asegura que el botón de pista se muestre correctamente al inicio
+        }
+
+        // --- Inicio de la Aplicación ---
+        window.onload = newGame;
+    </script>
+</body>
+</html>
